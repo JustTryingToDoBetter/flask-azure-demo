@@ -31,6 +31,17 @@ jobs:
           python -m venv antenv
           source antenv/bin/activate
           pip install -r requirements.txt
+      
+      - name: Run linting
+        run: flake8 .
+
+      - name: Run tests
+        run: pytest
+
+      - name: Zip app for deployment
+        if: success()
+        run: zip -r app.zip .
+
                 
       # By default, when you enable GitHub CI/CD integration through the Azure portal, the platform automatically sets the SCM_DO_BUILD_DURING_DEPLOYMENT application setting to true. This triggers the use of Oryx, a build engine that handles application compilation and dependency installation (e.g., pip install) directly on the platform during deployment. Hence, we exclude the antenv virtual environment directory from the deployment artifact to reduce the payload size. 
       - name: Upload artifact for deployment jobs
@@ -68,9 +79,12 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7B3CC679505C48008CE6BBEFA4D82048 }}
 
       - name: 'Deploy to Azure Web App'
+        if: success()
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'flask-demo-jaydin'
           slot-name: 'Production'
+          package: app.zip
+
           
