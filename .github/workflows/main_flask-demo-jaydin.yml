@@ -80,9 +80,9 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_71C8E4ED8C9A41FA9E9990D41E1A9319 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CA7DEC772044497CBD162816512GD12B }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7B3CC679505C48008CE6BBEFA0DB2048 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
       - name: Deploy to Azure Web App (Staging)
         uses: azure/webapps-deploy@v3
@@ -113,9 +113,9 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_71C8E4ED8C9A41FA9E9990D41E1A9319 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CA7DEC772044497CBD162816512GD12B }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7B3CC679505C48008CE6BBEFA0DB2048 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
           enable-AzPSSession: false
 
       - name: Deploy to Azure Web App (Production)
