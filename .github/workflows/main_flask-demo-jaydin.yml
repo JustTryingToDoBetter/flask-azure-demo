@@ -1,4 +1,10 @@
-name: Build, Test, and Deploy Flask App to Azure
+# -------------------------------
+# Azure Web Apps CI/CD (OIDC)
+# -------------------------------
+# Deploys Flask app to both STAGING and PRODUCTION
+# Uses secure OIDC-based authentication — no publish profile needed
+
+name: Build, Test, and Deploy Flask App (Staging + Production)
 
 on:
   push:
@@ -10,58 +16,110 @@ on:
       - main
 
 jobs:
+  # -------------------------------
+  # ✅ BUILD & TEST JOB
+  # -------------------------------
   build-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8
 
-      - name: Lint
-        run: flake8 .
+      - name: Run linting (flake8)
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Test
-        run: pytest
+      - name: Run tests (pytest)
+        run: |
+          pytest -v --maxfail=1 --disable-warnings -q
 
+      - name: Zip app for deployment
+        if: success()
+        run: zip -r app.zip . -x "venv/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: app.zip
+
+  # -------------------------------
+  # 🚀 STAGING DEPLOY JOB
+  # -------------------------------
   deploy-staging:
+    runs-on: ubuntu-latest
     needs: build-test
     if: github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: staging
+      url: https://flask-demo-jaydin-staging.azurewebsites.net
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Zip app
-        run: zip -r app.zip .
-
-      - name: Deploy to Azure (Staging)
-        uses: azure/webapps-deploy@v2
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          app-name: flask-demo-jaydin-staging   # replace with your staging app
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          name: python-app
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+
+      - name: Deploy to Azure Web App (Staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'flask-demo-jaydin-staging'
           package: app.zip
 
+  # -------------------------------
+  # 🚀 PRODUCTION DEPLOY JOB
+  # -------------------------------
   deploy-prod:
+    runs-on: ubuntu-latest
     needs: build-test
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: production
+      url: https://flask-demo-jaydin.azurewebsites.net
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Zip app
-        run: zip -r app.zip .
-
-      - name: Deploy to Azure (Production)
-        uses: azure/webapps-deploy@v2
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          app-name: flask-demo-jaydin   # replace with your prod app name
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PROD }}
+          name: python-app
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+          enable-AzPSSession: false
+
+      - name: Deploy to Azure Web App (Production)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'flask-demo-jaydin'
           package: app.zip
