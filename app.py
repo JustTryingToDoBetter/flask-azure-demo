@@ -4,7 +4,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Hello from Azure App Service via Github Actions"
+    return "Hello from Azure App Service via Github Actions, using Flask!"
 
 
 if __name__ == '__main__':
