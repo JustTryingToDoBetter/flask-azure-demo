@@ -1,17 +1,25 @@
-# Docs for Azure Web Apps Deploy Action:
-# https://github.com/Azure/webapps-deploy
-# Secure OIDC-based login, no publish profile needed
+# -------------------------------
+# Azure Web Apps CI/CD (OIDC)
+# -------------------------------
+# Deploys Flask app to both STAGING and PRODUCTION
+# Uses secure OIDC-based authentication — no publish profile needed
 
-name: Build, Test, and Deploy Flask App to Azure
+name: Build, Test, and Deploy Flask App (Staging + Production)
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+      - staging
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build:
+  # -------------------------------
+  # ✅ BUILD & TEST JOB
+  # -------------------------------
+  build-test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -25,15 +33,12 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: install dependencies
+      - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest flake8
 
-      # -------------------------------
-      # ✅ Code Quality Stage
-      # -------------------------------
       - name: Run linting (flake8)
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
@@ -42,25 +47,29 @@ jobs:
         run: |
           pytest -v --maxfail=1 --disable-warnings -q
 
-      # -------------------------------
-      # ✅ Package for deployment
-      # -------------------------------
       - name: Zip app for deployment
         if: success()
         run: zip -r app.zip . -x "venv/*"
 
-      - name: Upload artifact for deployment
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: python-app
           path: app.zip
 
-  deploy:
+  # -------------------------------
+  # 🚀 STAGING DEPLOY JOB
+  # -------------------------------
+  deploy-staging:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-test
+    if: github.ref == 'refs/heads/staging'
     permissions:
       id-token: write
       contents: read
+    environment:
+      name: staging
+      url: https://flask-demo-jaydin-staging.azurewebsites.net
 
     steps:
       - name: Download build artifact
@@ -71,14 +80,45 @@ jobs:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_71C8E4ED8C9A41FA9E9990D41E1A9319 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CA7DEC772044497CBD1628165126D12B }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7B3CC679505C48008CE6BBEFA4D82048 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
-      - name: Deploy to Azure Web App
-        if: success()
+      - name: Deploy to Azure Web App (Staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'flask-demo-jaydin-staging'
+          package: app.zip
+
+  # -------------------------------
+  # 🚀 PRODUCTION DEPLOY JOB
+  # -------------------------------
+  deploy-prod:
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: production
+      url: https://flask-demo-jaydin.azurewebsites.net
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+
+      - name: Deploy to Azure Web App (Production)
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'flask-demo-jaydin'
-          slot-name: 'Production'
           package: app.zip
